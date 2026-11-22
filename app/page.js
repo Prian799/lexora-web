@@ -1,69 +1,85 @@
-import Image from "next/image";
+"use client";
+import { useState } from "react";
+import CodeEditor from "../components/CodeEditor";
+import PhaseTabs from "../components/PhaseTabs";
+
+const TEMPLATES = {
+  c: `#include <stdio.h>\n\nint main() {\n    printf("Hello, World!\\n");\n    return 0;\n}\n`,
+  cpp: `#include <iostream>\nusing namespace std;\n\nint main() {\n    cout << "Hello, World!" << endl;\n    return 0;\n}\n`,
+  java: `public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n    }\n}\n`,
+};
 
 export default function Home() {
+  const [language, setLanguage] = useState("c");
+  const [code, setCode] = useState(TEMPLATES.c);
+  const [stdin, setStdin] = useState("");
+  const [output, setOutput] = useState("");
+  const [phases, setPhases] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  function changeLanguage(lang) {
+    setLanguage(lang);
+    setCode(TEMPLATES[lang]);
+  }
+
+  async function runCode() {
+    setLoading(true);
+    setOutput("Running...");
+    try {
+      const res = await fetch("/api/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language, code, stdin }),
+      });
+      const data = await res.json();
+      setOutput(data.output ?? "");
+      setPhases(data.phases ?? null);
+    } catch (e) {
+      setOutput("Error: " + e.message);
+    }
+    setLoading(false);
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.js
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="p-4 max-w-6xl mx-auto">
+      <div className="flex items-center gap-3 mb-3">
+        <h1 className="text-xl font-bold">Mini Online Compiler</h1>
+        <select
+          value={language}
+          onChange={(e) => changeLanguage(e.target.value)}
+          className="border rounded px-2 py-1 text-black"
+        >
+          <option value="c">C</option>
+          <option value="cpp">C++</option>
+          <option value="java">Java</option>
+        </select>
+        <button
+          onClick={runCode}
+          disabled={loading}
+          className="bg-green-600 text-white px-4 py-1 rounded disabled:opacity-50"
+        >
+          {loading ? "Running..." : "Run"}
+        </button>
+      </div>
+
+      <CodeEditor language={language} value={code} onChange={setCode} />
+
+      <div className="grid md:grid-cols-2 gap-3 mt-3">
+        <div>
+          <h2 className="font-semibold">Input (stdin)</h2>
+          <textarea
+            value={stdin}
+            onChange={(e) => setStdin(e.target.value)}
+            className="w-full h-28 border rounded p-2 text-black"
+          />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div>
+          <h2 className="font-semibold">Output</h2>
+          <pre className="h-28 p-2 bg-black text-white rounded overflow-auto">{output}</pre>
         </div>
-      </main>
-    </div>
+      </div>
+
+      <PhaseTabs data={phases} />
+    </main>
   );
 }
